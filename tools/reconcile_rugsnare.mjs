@@ -1,55 +1,55 @@
 #!/usr/bin/env node
 // Recomputes every figure in RECONCILIATION-RUGSNARE.md from the dated artifact.
-// Zero dependencies. Same contract as tools/denominator_frames.mjs and
-// tools/reconcile_agentnexus.mjs: the document may not carry a number this file
-// cannot reproduce.
+// Zero dependencies.
 //
-//   node tools/reconcile_rugsnare.mjs            # print the table
-//   node tools/reconcile_rugsnare.mjs selftest   # known-answer checks
+// v2 (2026-10-22, same day as v1). v1 joined the HOSTED axis only and concluded we had
+// nothing to contribute. The hosted facts were right; the conclusion was wrong, because
+// the counterparty's corpus is npm PACKAGES and the package-keyed series was never
+// joined. v2 declares BOTH axes and is gated by tools/axis_coverage.mjs, which fails the
+// build if an artifact has no axis matching the counterparty's vantage.
+//
+//   node tools/reconcile_rugsnare.mjs            # print both columns
+//   node tools/reconcile_rugsnare.mjs selftest   # known-answer checks + the axis gate
 import { readFileSync } from 'node:fs';
+import { checkArtifact, checkNegativeClaim } from './axis_coverage.mjs';
 
 const SRC = new URL('../reconciliation/rugsnare-2026-10-22.json', import.meta.url);
+const DOC = new URL('../RECONCILIATION-RUGSNARE.md', import.meta.url);
 const doc = JSON.parse(readFileSync(SRC, 'utf8'));
 const rows = doc.rows;
-const endpoints = rows.flatMap((r) => r.endpoints);
 
-export const mapped = () => rows.filter((r) => r.registry_id);
-export const unmapped = () => rows.filter((r) => !r.registry_id);
-// A mapped slug whose registry record declares no remote endpoint. This is a fact
-// about the REGISTRY RECORD, not a finding about the vendor — six of eleven, which is
-// why an anonymous-vantage drift rate over this corpus is a slice of unknown size.
-export const noDeclaredEndpoint = () => mapped().filter((r) => r.declared_remote_endpoints === 0);
-export function states() {
-  const c = {};
-  for (const e of endpoints) c[e.stillos_state] = (c[e.stillos_state] || 0) + 1;
-  return c;
+export const pkgRows = () => rows.filter((r) => r.package_axis.in_our_series);
+export const windows = () => rows.flatMap((r) => r.package_axis.windows.map((w) => ({ ...w, pkg: r.npm_package, slug: r.slug })));
+export const byClass = (c) => windows().filter((w) => w.classification === c);
+export const hostedEndpoints = () => rows.flatMap((r) => r.hosted_axis.endpoints);
+export function hostedStates() {
+  const s = {};
+  for (const e of hostedEndpoints()) s[e.stillos_state] = (s[e.stillos_state] || 0) + 1;
+  return s;
 }
-export const withEvents = () => rows.filter((r) => r.endpoints.some((e) => e.surface_events > 0));
-export const silentTotal = () => endpoints.reduce((a, e) => a + e.silent_changes, 0);
-export const eventTotal = () => endpoints.reduce((a, e) => a + e.surface_events, 0);
-// The rows where NEITHER side can see the artifact: our prober is walled AND their
-// scanner could not scan it. Paraphern flagged sentry as exactly this.
-export const bothMiss = () => mapped().filter((r) =>
-  r.endpoints.some((e) => e.stillos_state === 'WAF' || e.stillos_state === 'TOOLS_DENIED'));
+// Rows where a new network host appears in a version window — the finding class a
+// package-pin scanner is built to surface.
+export const newHostWindows = () => byClass('CAPABILITY_CHANGE').filter((w) => (w.categories.new_hosts || []).length);
 
 function main() {
   console.log(`subject      ${doc.subject}`);
   console.log(`measured_at  ${doc.measured_at_utc}  (is_current_state=${doc.is_current_state})`);
-  console.log(`snapshot     ${doc.census_snapshot}`);
-  console.log(`\ntheir slugs ${rows.length} | mapped to a registry id ${mapped().length} | in our census ${rows.filter((r) => r.in_our_census).length}`);
-  console.log(`declaring a remote endpoint: ${rows.filter((r) => r.declared_remote_endpoints > 0).length} of ${mapped().length} mapped`);
-  console.log('\nper mapped slug:');
-  for (const r of mapped()) {
-    if (!r.endpoints.length) { console.log(`  ${r.slug.padEnd(16)} NO_DECLARED_ENDPOINT`); continue; }
-    for (const e of r.endpoints) {
-      console.log(`  ${r.slug.padEnd(16)} ${e.stillos_state.padEnd(16)} ev=${e.surface_events} silent=${e.silent_changes}  ${e.url}`);
-    }
+  console.log(`schema       ${doc.schema}`);
+  console.log('\naxes declared:');
+  for (const [n, a] of Object.entries(doc.axes_declared)) {
+    console.log(`  ${n.padEnd(8)} key=${a.key.padEnd(26)} indexed_by=${a.indexed_by.padEnd(22)} matches_their_vantage=${a.matches_their_vantage}`);
   }
-  console.log(`\nendpoint states: ${JSON.stringify(states())}`);
-  console.log(`surface events: ${eventTotal()} | SILENT changes: ${silentTotal()}`);
-  console.log(`slugs with any event: ${withEvents().map((r) => r.slug).join(', ') || '(none)'}`);
-  console.log(`\nunmapped (their null rows, with their stated reason): ${unmapped().length}`);
-  for (const r of unmapped()) console.log(`  ${r.slug.padEnd(16)} ${String(r.their_note).slice(0, 72)}`);
+  const t = doc.totals;
+  console.log(`\nPACKAGE AXIS (matches their vantage) — ${t.package_axis.covered} of ${t.their_corpus} covered`);
+  console.log(`  version-pair rows ${t.package_axis.version_pair_rows} | CAPABILITY_CHANGE ${t.package_axis.capability_changes} | BUNDLE_NOISE ${t.package_axis.bundle_noise} | HASH_ONLY ${t.package_axis.hash_only}`);
+  for (const r of pkgRows()) {
+    const p = r.package_axis;
+    console.log(`  ${r.npm_package.padEnd(36)} rows=${String(p.version_pair_rows).padEnd(3)} changed=${p.changed_windows} noise=${p.bundle_noise_windows} hashonly=${p.hash_only_windows}`);
+  }
+  console.log(`\nwindows introducing a new network host: ${newHostWindows().length}`);
+  for (const w of newHostWindows()) console.log(`  ${w.pkg} ${w.from}->${w.to}  ${JSON.stringify(w.categories.new_hosts).slice(0, 96)}`);
+  console.log(`\nHOSTED AXIS (does NOT match their vantage) — ${t.hosted_axis.declaring_endpoint} of ${t.their_corpus} declare an endpoint`);
+  console.log(`  states ${JSON.stringify(t.hosted_axis.states)} | surface events ${t.hosted_axis.surface_events} | silent ${t.hosted_axis.silent_changes}`);
 }
 
 function selftest() {
@@ -59,42 +59,56 @@ function selftest() {
       ? pass++
       : (fail++, console.log(`  FAIL ${name}\n    got  ${JSON.stringify(got)}\n    want ${JSON.stringify(want)}`));
   };
-  t('their corpus size', rows.length, 22);
-  t('mapped to a registry id', mapped().length, 11);
-  t('unmapped', unmapped().length, 11);
-  t('mapped + unmapped partitions the corpus', mapped().length + unmapped().length, rows.length);
-  t('every mapped slug resolves in our census', mapped().every((r) => r.in_our_census), true);
-  t('only 5 of the 11 declare a remote endpoint', mapped().filter((r) => r.declared_remote_endpoints > 0).length, 5);
-  t('6 mapped slugs declare NO remote endpoint', noDeclaredEndpoint().length, 6);
-  t('endpoint state distribution', states(), { WAF: 2, NOT_UNDER_CLOCK: 1, LIVE: 1, TOOLS_DENIED: 1 });
-  t('exactly one endpoint is LIVE to an anonymous prober', states().LIVE, 1);
-  t('the one LIVE endpoint is context7', withEvents().map((r) => r.slug), ['context7']);
-  t('2 surface events total', eventTotal(), 2);
-  // THE HEADLINE, and it is a negative result: we have no silent drift to contribute
-  // on this corpus. Reporting it as a finding rather than burying it is the point.
-  t('ZERO silent changes — nothing to contribute on this corpus', silentTotal(), 0);
-  t('both context7 events are version-visible, not silent',
-    rows.find((r) => r.slug === 'context7').endpoints[0].events.every((e) => e.silent === false), true);
-  t('both context7 events are the same 4.2.0 -> 4.3.0 transition',
-    [...new Set(rows.find((r) => r.slug === 'context7').endpoints[0].events.map((e) => `${e.from_version}->${e.to_version}`))],
-    ['4.2.0->4.3.0']);
-  t('sentry is a both-miss (walled to us, unscannable for them)',
-    bothMiss().map((r) => r.slug).includes('sentry'), true);
-  // NOT_UNDER_CLOCK must never be read as a verdict.
-  t('NOT_UNDER_CLOCK is defined as absence of a verdict',
-    /absence of a verdict/.test(doc.definitions.NOT_UNDER_CLOCK), true);
-  t('NO_DECLARED_ENDPOINT is defined as a registry-record property',
-    /property of the registry record/.test(doc.definitions.NO_DECLARED_ENDPOINT), true);
-  // Dated, not current — the whole asset.
-  t('artifact does not claim to be current state', doc.is_current_state, false);
-  t('artifact carries a measurement timestamp', /^\d{4}-\d{2}-\d{2}T/.test(doc.measured_at_utc), true);
-  t('artifact names the census snapshot it was built from', /^census-\d{4}-/.test(doc.census_snapshot), true);
-  t('every state used is defined', Object.keys(states()).every((k) => k in doc.definitions), true);
-  // The substring trap that would have manufactured two fake Sentry rows.
-  t('exact-match law is recorded in the artifact', /never by substring/.test(doc.exact_match_law), true);
-  t('no endpoint url is a non-vendor sentry lookalike',
-    endpoints.every((e) => !/regsentry|sdsentry/.test(e.url)), true);
-  t('every mapped row carries their stated note', mapped().every((r) => typeof r.their_note === 'string'), true);
+  // ── THE GATE. This is the whole reason v2 exists.
+  t('artifact passes the axis-coverage gate', checkArtifact(doc), []);
+  t('a package axis is declared and matches their vantage', doc.axes_declared.package.matches_their_vantage, true);
+  t('the hosted axis is declared as NOT matching their vantage', doc.axes_declared.hosted.matches_their_vantage, false);
+  t('the artifact names what it supersedes and why', /joined ONLY the hosted axis/.test(doc.supersedes), true);
+  t('the document makes no unbacked negative claim',
+    checkNegativeClaim(doc, readFileSync(DOC, 'utf8')), []);
+
+  const tt = doc.totals;
+  t('their corpus', tt.their_corpus, 22);
+  t('rows match the corpus', rows.length, 22);
+  t('package axis covers 9', tt.package_axis.covered, 9);
+  t('65 version-pair rows', tt.package_axis.version_pair_rows, 65);
+  t('17 capability changes', tt.package_axis.capability_changes, 17);
+  t('1 bundle-noise window', tt.package_axis.bundle_noise, 1);
+  t('4 hash-only windows', tt.package_axis.hash_only, 4);
+  t('classes partition the changed windows',
+    tt.package_axis.capability_changes + tt.package_axis.bundle_noise + tt.package_axis.hash_only, windows().length);
+
+  // The bundle-noise call must be the ui5 patch, and must NOT be counted as a finding.
+  const noise = byClass('BUNDLE_NOISE');
+  t('the bundle-noise window is @ui5/mcp-server 0.3.0->0.3.1',
+    noise.map((w) => `${w.pkg} ${w.from}->${w.to}`), ['@ui5/mcp-server 0.3.0->0.3.1']);
+  t('the bundle-noise window carries its reason', /un-vendored/.test(noise[0].note), true);
+  t('hash-only windows carry their reason',
+    byClass('HASH_ONLY').every((w) => /no tracked category did/.test(w.note || '')), true);
+
+  // The two rows that make this a contribution rather than a correction.
+  const sup = rows.find((r) => r.slug === 'supabase');
+  t('we hold the supabase windows their scanner failed on', sup.package_axis.version_pair_rows, 2);
+  t('the supabase window introduces new hosts',
+    sup.package_axis.windows.some((w) => (w.categories.new_hosts || []).includes('supabase.green')), true);
+  const sen = rows.find((r) => r.slug === 'sentry');
+  t('we hold a sentry window', sen.package_axis.version_pair_rows, 3);
+
+  // EXACT MATCH. The substring pass put a NOAA tides server under `currents`.
+  t('currents is the exact @currents/mcp package', rows.find((r) => r.slug === 'currents').npm_package, '@currents/mcp');
+  t('bybit is the exact trading-mcp package', rows.find((r) => r.slug === 'bybit').npm_package, 'trading-mcp');
+  t('no noaa or bitbybit lookalike reached the artifact',
+    rows.every((r) => !/noaa|bitbybit/.test(r.npm_package)), true);
+  t('exact-match law is recorded', /never by substring/.test(doc.exact_match_law), true);
+  t('classification law is recorded', /never counted as capability findings/.test(doc.classification_law), true);
+
+  // Hosted axis still correct — v1's facts were never the problem.
+  t('hosted states unchanged from v1', hostedStates(), { WAF: 2, TOOLS_DENIED: 1, NOT_UNDER_CLOCK: 1, LIVE: 1 });
+  t('hosted silent changes still zero', tt.hosted_axis.silent_changes, 0);
+  t('5 of 22 declare a hosted endpoint', tt.hosted_axis.declaring_endpoint, 5);
+
+  t('dated, not current', doc.is_current_state, false);
+  t('carries a measurement timestamp', /^\d{4}-\d{2}-\d{2}T/.test(doc.measured_at_utc), true);
   console.log(`selftest: ${pass} passed, ${fail} failed`);
   if (fail) process.exit(1);
 }
