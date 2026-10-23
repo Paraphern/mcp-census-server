@@ -1,0 +1,314 @@
+{
+  "schema": "stillos.reconciliation.v1",
+  "subject": "rugsnare drift-watch corpus (Paraphern)",
+  "thread": "https://github.com/snyk/agent-scan/issues/482",
+  "their_artifact": "https://github.com/Paraphern/rugsnare/blob/main/audits/drift-watch/registry-mapping.json",
+  "their_artifact_comment": "Corpus slug -> MCP Registry id. Built 2026-10-18 via registry search API. 11 of 22 mapped, 11 null. null = not in registry, no official entry, or registry entry is a different artifact.",
+  "join_key": "MCP Registry id (their registryId -> our census `name`) -> declared remote_endpoints[].url",
+  "measured_at_utc": "2026-10-22T19:40:08.749Z",
+  "census_snapshot": "census-2026-10-22T19-10-03-335Z.json",
+  "is_current_state": false,
+  "dated_observation_note": "Our column is clock-indexed: it records what an ANONYMOUS prober saw at the stated time. Theirs is version-indexed: per-release package pins. Neither axis reconstructs the other.",
+  "exact_match_law": "Endpoint URLs are matched EXACTLY, never by substring. A substring search for \"sentry\" in our event series returns regsentry.com and sdsentry.0xpi.com, neither of which is Sentry. A join whose false positives look like corroboration is worse than an empty result.",
+  "definitions": {
+    "LIVE": "MCP initialize + tools/list returned a usable surface to an anonymous prober",
+    "WAF": "a challenge/interstitial answered instead of the server",
+    "AUTH": "reachable, requires credentials",
+    "TOOLS_DENIED": "initialize succeeded, tools/list refused",
+    "NOT_UNDER_CLOCK": "endpoint declared in the registry but not in our probe set at this time; absence of a verdict, NOT a verdict of absence",
+    "NO_DECLARED_ENDPOINT": "the registry entry declares no remote endpoint at all, so there is nothing for an anonymous prober to reach. This is a property of the registry record, not a finding about the vendor."
+  },
+  "totals": {
+    "their_slugs": 22,
+    "mapped_to_registry_id": 11,
+    "present_in_our_census": 11,
+    "declaring_a_remote_endpoint": 5,
+    "endpoint_states": {
+      "WAF": 2,
+      "NOT_UNDER_CLOCK": 1,
+      "LIVE": 1,
+      "TOOLS_DENIED": 1
+    },
+    "surface_events_total": 2,
+    "silent_changes_total": 0
+  },
+  "rows": [
+    {
+      "slug": "chrome-devtools",
+      "registry_id": "io.github.ChromeDevTools/chrome-devtools-mcp",
+      "their_note": "official; npm and registry track same artifact",
+      "in_our_census": true,
+      "census_name": "io.github.ChromeDevTools/chrome-devtools-mcp",
+      "declared_remote_endpoints": 0,
+      "endpoints": []
+    },
+    {
+      "slug": "mongodb",
+      "registry_id": "io.github.mongodb-js/mongodb-mcp-server",
+      "their_note": "official",
+      "in_our_census": true,
+      "census_name": "io.github.mongodb-js/mongodb-mcp-server",
+      "declared_remote_endpoints": 0,
+      "endpoints": []
+    },
+    {
+      "slug": "hostinger",
+      "registry_id": "io.github.hostinger/hostinger-api-mcp",
+      "their_note": "official; registry version line 0.1.x-1.x is disjoint from npm 2.x (two separate artifacts under one name)",
+      "in_our_census": true,
+      "census_name": "io.github.hostinger/hostinger-api-mcp",
+      "declared_remote_endpoints": 1,
+      "endpoints": [
+        {
+          "url": "https://mcp.hostinger.com",
+          "host": "mcp.hostinger.com",
+          "stillos_state": "WAF",
+          "surface_hash": null,
+          "desc_hash": null,
+          "tool_count": null,
+          "first_seen_floor": null,
+          "surface_events": 0,
+          "silent_changes": 0,
+          "events": []
+        }
+      ]
+    },
+    {
+      "slug": "browserstack",
+      "registry_id": "io.github.browserstack/mcp-server",
+      "their_note": "official; registry latest 2.2.3 matches npm",
+      "in_our_census": true,
+      "census_name": "io.github.browserstack/mcp-server",
+      "declared_remote_endpoints": 1,
+      "endpoints": [
+        {
+          "url": "https://mcp.browserstack.com/mcp",
+          "host": "mcp.browserstack.com",
+          "stillos_state": "NOT_UNDER_CLOCK",
+          "surface_hash": null,
+          "desc_hash": null,
+          "tool_count": null,
+          "first_seen_floor": null,
+          "surface_events": 0,
+          "silent_changes": 0,
+          "events": []
+        }
+      ]
+    },
+    {
+      "slug": "context7",
+      "registry_id": "io.github.upstash/context7",
+      "their_note": "official",
+      "in_our_census": true,
+      "census_name": "io.github.upstash/context7",
+      "declared_remote_endpoints": 1,
+      "endpoints": [
+        {
+          "url": "https://mcp.context7.com/mcp",
+          "host": "mcp.context7.com",
+          "stillos_state": "LIVE",
+          "surface_hash": "d72ca155dd7fec6f9227203c13c4544bda5caf5fb681707c7ffe87c68865f8dd",
+          "desc_hash": "b702672ba6552c6dd016c76c530a5c5c60001668d02ba3ce8e5f89e54758ca08",
+          "tool_count": 2,
+          "first_seen_floor": "2026-10-03T19:40:03.859Z",
+          "surface_events": 2,
+          "silent_changes": 0,
+          "events": [
+            {
+              "ts": "2026-10-09T19:40:03.679Z",
+              "event": "PARAMS_CHANGED",
+              "silent": false,
+              "from_version": "4.2.0",
+              "to_version": "4.3.0"
+            },
+            {
+              "ts": "2026-10-09T19:40:03.679Z",
+              "event": "DESCRIPTION_CHANGED",
+              "silent": false,
+              "from_version": "4.2.0",
+              "to_version": "4.3.0"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "currents",
+      "registry_id": "io.github.pipeworx-io/currents",
+      "their_note": "pipeworx is the Currents company",
+      "in_our_census": true,
+      "census_name": "io.github.pipeworx-io/currents",
+      "declared_remote_endpoints": 1,
+      "endpoints": [
+        {
+          "url": "https://gateway.pipeworx.io/currents/mcp",
+          "host": "gateway.pipeworx.io",
+          "stillos_state": "TOOLS_DENIED",
+          "surface_hash": null,
+          "desc_hash": null,
+          "tool_count": null,
+          "surface_events": 0,
+          "silent_changes": 0,
+          "events": []
+        }
+      ]
+    },
+    {
+      "slug": "figma",
+      "registry_id": "io.github.GLips/Figma-Context-MCP",
+      "their_note": "community server we track; the official Figma MCP is com.figma.mcp/mcp (remote hosted, not in our corpus)",
+      "in_our_census": true,
+      "census_name": "io.github.GLips/Figma-Context-MCP",
+      "declared_remote_endpoints": 0,
+      "endpoints": []
+    },
+    {
+      "slug": "sentry",
+      "registry_id": "io.github.getsentry/sentry-mcp",
+      "their_note": "official; registry lists npm @sentry/mcp-server as the package - confirmed same artifact as our corpus",
+      "in_our_census": true,
+      "census_name": "io.github.getsentry/sentry-mcp",
+      "declared_remote_endpoints": 1,
+      "endpoints": [
+        {
+          "url": "https://mcp.sentry.dev/mcp",
+          "host": "mcp.sentry.dev",
+          "stillos_state": "WAF",
+          "surface_hash": null,
+          "desc_hash": null,
+          "tool_count": null,
+          "first_seen_floor": null,
+          "surface_events": 0,
+          "silent_changes": 0,
+          "events": []
+        }
+      ]
+    },
+    {
+      "slug": "sap-fiori",
+      "registry_id": "io.github.SAP/fiori-mcp-server",
+      "their_note": "official; registry versions 0.6.49-1.12.0 lag behind npm 1.13+ (maintainer has not published recent versions to registry)",
+      "in_our_census": true,
+      "census_name": "io.github.SAP/fiori-mcp-server",
+      "declared_remote_endpoints": 0,
+      "endpoints": []
+    },
+    {
+      "slug": "ui5",
+      "registry_id": "io.github.UI5/mcp-server",
+      "their_note": "official; registry latest 0.3.2 matches npm latest; confirmed same artifact",
+      "in_our_census": true,
+      "census_name": "io.github.UI5/mcp-server",
+      "declared_remote_endpoints": 0,
+      "endpoints": []
+    },
+    {
+      "slug": "firebase",
+      "registry_id": "io.github.firebase/firebase-mcp",
+      "their_note": "official; registry v0.3.0 lags behind npm 0.4.4",
+      "in_our_census": true,
+      "census_name": "io.github.firebase/firebase-mcp",
+      "declared_remote_endpoints": 0,
+      "endpoints": []
+    },
+    {
+      "slug": "apify",
+      "registry_id": null,
+      "their_note": "registry has com.apify/apify-mcp-server (versions 0.10-0.15) but our corpus tracks @apify/actors-mcp-server (0.16-0.18) - different artifacts, different npm packages",
+      "in_our_census": false,
+      "census_name": null,
+      "declared_remote_endpoints": 0,
+      "endpoints": []
+    },
+    {
+      "slug": "transcend",
+      "registry_id": null,
+      "their_note": "not in registry; searched transcend, transcend mcp - zero results",
+      "in_our_census": false,
+      "census_name": null,
+      "declared_remote_endpoints": 0,
+      "endpoints": []
+    },
+    {
+      "slug": "azure-devops",
+      "registry_id": null,
+      "their_note": "not found in registry search",
+      "in_our_census": false,
+      "census_name": null,
+      "declared_remote_endpoints": 0,
+      "endpoints": []
+    },
+    {
+      "slug": "notion",
+      "registry_id": null,
+      "their_note": "no official @notionhq entry; community alternatives exist",
+      "in_our_census": false,
+      "census_name": null,
+      "declared_remote_endpoints": 0,
+      "endpoints": []
+    },
+    {
+      "slug": "heroku",
+      "registry_id": null,
+      "their_note": "no official entry",
+      "in_our_census": false,
+      "census_name": null,
+      "declared_remote_endpoints": 0,
+      "endpoints": []
+    },
+    {
+      "slug": "launchdarkly",
+      "registry_id": null,
+      "their_note": "io.github.pipeworx-io/launchdarkly exists but uncertain provenance",
+      "in_our_census": false,
+      "census_name": null,
+      "declared_remote_endpoints": 0,
+      "endpoints": []
+    },
+    {
+      "slug": "netlify",
+      "registry_id": null,
+      "their_note": "all entries are app.netlify.* format (hosted namespace), not io.github.*; no official npm @netlify/mcp entry",
+      "in_our_census": false,
+      "census_name": null,
+      "declared_remote_endpoints": 0,
+      "endpoints": []
+    },
+    {
+      "slug": "bybit",
+      "registry_id": null,
+      "their_note": "not in registry; trading-mcp npm package unregistered",
+      "in_our_census": false,
+      "census_name": null,
+      "declared_remote_endpoints": 0,
+      "endpoints": []
+    },
+    {
+      "slug": "hubspot",
+      "registry_id": null,
+      "their_note": "no official HubSpot entry; community alternatives exist",
+      "in_our_census": false,
+      "census_name": null,
+      "declared_remote_endpoints": 0,
+      "endpoints": []
+    },
+    {
+      "slug": "shopify",
+      "registry_id": null,
+      "their_note": "no official @shopify/dev-mcp entry; community shopify MCP servers exist",
+      "in_our_census": false,
+      "census_name": null,
+      "declared_remote_endpoints": 0,
+      "endpoints": []
+    },
+    {
+      "slug": "supabase",
+      "registry_id": null,
+      "their_note": "no official entry; io.github.mcp-dir/supabase-mcp and io.github.mrfentmen/supabase-mcp are community; our npm @supabase/mcp-server-supabase does not appear to be registered",
+      "in_our_census": false,
+      "census_name": null,
+      "declared_remote_endpoints": 0,
+      "endpoints": []
+    }
+  ]
+}
